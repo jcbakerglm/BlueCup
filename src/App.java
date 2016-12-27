@@ -13,6 +13,14 @@ import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
 
+/***********************************
+ * 
+ * @author John Baker
+ *
+ * This comment block was added just
+ * to see if my Git repo is working.
+ ***********************************/
+
 public class App 
 {
 	static{ System.loadLibrary(Core.NATIVE_LIBRARY_NAME); 
