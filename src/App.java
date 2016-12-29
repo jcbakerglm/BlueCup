@@ -1,21 +1,14 @@
-import java.awt.Image;
-//import java.awt.Point;
-import java.util.ArrayList;
-
-import javax.swing.ImageIcon;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-import org.opencv.core.MatOfPoint;
-import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.*;
 import org.opencv.core.Point;
-import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.ArrayList;
+
+//import java.awt.Point;
 
 /********************************************************************
  * 
@@ -25,55 +18,53 @@ import org.opencv.videoio.Videoio;
  * 2. Look for other ways to streamline and improve code.
  *
  ********************************************************************/
-public class App 
-{
-	static{ System.loadLibrary(Core.NATIVE_LIBRARY_NAME); 
+public class App {
+	static {
+		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
 	}
-	
-	private JFrame processedFrame;
-    private JFrame augmentedFrame;
+
+	private static App a = new App();
+	private ImageProcessor imp = new ImageProcessor();
+	private Mat webcamMat = new Mat();
+	private Pipeline imagePipeline = new Pipeline();
+
+
+    private GUI processedFrame;
+	private GUI augmentedFrame;
+
 	private JLabel processedImageLabel;
-    private JLabel augmentedImageLabel;
-	
-	public static void main(String[] args) {
-		App app = new App();
-		app.initGUI(); 
-		app.runMainLoop(args);
+	private JLabel augmentedImageLabel;
+
+    public static void main(String[] args) {
+		a.runMainLoop();
 	}
-	
-	private void initGUI() {
-		processedFrame = new JFrame("Processed Image");  
-		processedFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
-		processedFrame.setSize(400,400);  
+
+	private void runMainLoop() {
 		processedImageLabel = new JLabel();
-		processedFrame.add(processedImageLabel);
-		processedFrame.setVisible(true);       
-
-		augmentedFrame = new JFrame("Augmented Image");  
-		augmentedFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
-		augmentedFrame.setSize(400,400);  
 		augmentedImageLabel = new JLabel();
-	    augmentedFrame.add(augmentedImageLabel);
-	    augmentedFrame.setVisible(true);       
-	}
 
-	private void runMainLoop(String[] args) {
-		ImageProcessor imageProcessor = new ImageProcessor();
-		Mat webcamMatImage = new Mat();  
-		Image processedImage;  
-        Image augmentedImage;  
-		VideoCapture capture = new VideoCapture(1);
+		processedFrame = new GUI("Processed Frame", 400, 400, true, false);
+        augmentedFrame = new GUI("Augmented Frame", 400, 400, true, false);
+
+        processedFrame.add(processedImageLabel);
+        augmentedFrame.add(augmentedImageLabel);
+
+        augmentedFrame.setLocation(~-320, ~0);
+
+        Image processedImage;
+        Image augmentedImage;
+
+		VideoCapture capture = new VideoCapture(0);
 		
 		capture.set(Videoio.CAP_PROP_FRAME_WIDTH,320);
 		capture.set(Videoio.CAP_PROP_FRAME_HEIGHT,240);
 
-		if( capture.isOpened()){  
-			while (true){  
-				capture.read(webcamMatImage);  
-				if( !webcamMatImage.empty() ){
+		if(capture.isOpened()){
+			while(true){
+				capture.read(webcamMat);
+				if(!webcamMat.empty()){
 				    // Perform processing on image
-				    Pipeline imagePipeline = new Pipeline();
-				    imagePipeline.setsource0(webcamMatImage);
+				    imagePipeline.setsource0(webcamMat);
 				    imagePipeline.process();
 				 
 				    // Get contours for overlay
@@ -90,8 +81,7 @@ public class App
 			            }
 			        }
 
-                    Mat overlayedImage = new Mat();
-                    overlayedImage = webcamMatImage.clone();
+                    Mat overlayedImage = webcamMat.clone();
 			        
 			        if (theTarget > -1) {
 	                    // Target in within the frame; grab it
@@ -106,8 +96,8 @@ public class App
                         Imgproc.circle(overlayedImage, center, 2, new Scalar(0, 255, 0), 2);
 
                         // Get X and Y for center of JLabel
-                        int frameX = (augmentedFrame.getWidth() / 2);
-                        int frameY = (augmentedFrame.getHeight() / 2);
+                        int frameX = (augmentedImageLabel.getWidth() / 2);
+                        int frameY = (augmentedImageLabel.getHeight() / 2);
                           
                         // Add sighting ring; Set color:
                         // Green = Within sight radius
@@ -131,10 +121,10 @@ public class App
                     //Imgproc.drawContours(overlayedImage, contourArray, theTarget, new Scalar(0, 0, 255), 5); 
 
 			        // Convert thresholded matrix to image to display in JLabel
-                    processedImage = imageProcessor.toBufferedImage(imagePipeline.hsvThresholdOutput());
+                    processedImage = imp.toBufferedImage(imagePipeline.hsvThresholdOutput());
 				    				    
                     // Convert enhanced raw footage matrix to image to display in JLabel
-                    augmentedImage = imageProcessor.toBufferedImage(overlayedImage);
+                    augmentedImage = imp.toBufferedImage(overlayedImage);
 
 					// Associate the Image with the JLabel
 					ImageIcon processedImageIcon = new ImageIcon(processedImage, "Processed Image");
@@ -144,16 +134,16 @@ public class App
                     augmentedImageLabel.setIcon(augmentedImageIcon);
                     
 					// Resize the windows to fit the image
-                    processedFrame.pack();
                     augmentedFrame.pack();
-				}  
-				else{  
+                    processedFrame.pack();
+				}
+				else {
 					System.out.println(" -- Frame not captured -- Break!"); 
 					break;  
 				}
 			}  
 		}
-		else{
+		else {
 			System.out.println("Couldn't open capture.");
 		}
 		
