@@ -1,4 +1,5 @@
 import java.awt.Image;
+//import java.awt.Point;
 import java.util.ArrayList;
 
 import javax.swing.ImageIcon;
@@ -6,58 +7,61 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 
 import org.opencv.core.Core;
+import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
 
-/***********************************
+/********************************************************************
  * 
- * @author John Baker
+ * Things to do:
+ * 
+ * 1. Parameterize initGUI so that it can be used for both windows.
+ * 2. Look for other ways to streamline and improve code.
  *
- * This comment block was added just
- * to see if my Git repo is working.
- ***********************************/
-
+ ********************************************************************/
 public class App 
 {
 	static{ System.loadLibrary(Core.NATIVE_LIBRARY_NAME); 
 	}
 	
-	private JFrame frame;
-    private JFrame frame2;
-	private JLabel imageLabel;
-    private JLabel imageLabel2;
+	private JFrame processedFrame;
+    private JFrame augmentedFrame;
+	private JLabel processedImageLabel;
+    private JLabel augmentedImageLabel;
 	
 	public static void main(String[] args) {
 		App app = new App();
-		app.initGUI();
+		app.initGUI(); 
 		app.runMainLoop(args);
 	}
 	
 	private void initGUI() {
-		frame = new JFrame("Color Filtered");  
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
-		frame.setSize(400,400);  
-		imageLabel = new JLabel();
-		frame.add(imageLabel);
-		frame.setVisible(true);       
+		processedFrame = new JFrame("Processed Image");  
+		processedFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
+		processedFrame.setSize(400,400);  
+		processedImageLabel = new JLabel();
+		processedFrame.add(processedImageLabel);
+		processedFrame.setVisible(true);       
 
-        frame2 = new JFrame("Enhanced Footage");  
-	    frame2.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
-	    frame2.setSize(400,400);  
-	    imageLabel2 = new JLabel();
-	    frame2.add(imageLabel2);
-	    frame2.setVisible(true);       
-}
+		augmentedFrame = new JFrame("Augmented Image");  
+		augmentedFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);  
+		augmentedFrame.setSize(400,400);  
+		augmentedImageLabel = new JLabel();
+	    augmentedFrame.add(augmentedImageLabel);
+	    augmentedFrame.setVisible(true);       
+	}
 
 	private void runMainLoop(String[] args) {
 		ImageProcessor imageProcessor = new ImageProcessor();
 		Mat webcamMatImage = new Mat();  
-		Image tempImage;  
-        Image tempImage2;  
+		Image processedImage;  
+        Image augmentedImage;  
 		VideoCapture capture = new VideoCapture(1);
 		
 		capture.set(Videoio.CAP_PROP_FRAME_WIDTH,320);
@@ -77,7 +81,7 @@ public class App
 
 				    // Find the contour with the largest area
 			        double targetArea = -1.0;
-			        int theTarget = 0;
+			        int theTarget = -1;
 			        
 			        for (int i = 0; i < contourArray.size(); i++) {
 			            if (Imgproc.contourArea(contourArray.get(i)) > targetArea) {
@@ -86,28 +90,62 @@ public class App
 			            }
 			        }
 
-				    // Apply contours to raw footage
                     Mat overlayedImage = new Mat();
                     overlayedImage = webcamMatImage.clone();
-                    
-                    Imgproc.drawContours(overlayedImage, imagePipeline.convexHullsOutput(), theTarget, new Scalar(0, 0, 255), 5); 
+			        
+			        if (theTarget > -1) {
+	                    // Target in within the frame; grab it
+			            MatOfPoint currentContour = contourArray.get(theTarget);
+	                    
+			            // Place targeting dot in center of target
+	                    float[] radius = new float[1];
+	                    Point center = new Point();
+	                    MatOfPoint2f currentContour2f = new MatOfPoint2f();
+	                    currentContour.convertTo(currentContour2f, CvType.CV_32FC2);
+	                    Imgproc.minEnclosingCircle(currentContour2f, center, radius);
+                        Imgproc.circle(overlayedImage, center, 2, new Scalar(0, 255, 0), 2);
 
-			        // Convert thresholded matrix to image
-				    tempImage = imageProcessor.toBufferedImage(imagePipeline.hsvThresholdOutput());
+                        // Get X and Y for center of JLabel
+                        int frameX = (augmentedFrame.getWidth() / 2);
+                        int frameY = (augmentedFrame.getHeight() / 2);
+                          
+                        // Add sighting ring; Set color:
+                        // Green = Within sight radius
+                        // Yellow = Close to sight
+                        // Red = Not close to sight
+                        Point sightCenter = new Point(frameX, frameY);
+                        Scalar sightColor;
+                        
+                        if ((Math.pow(center.x - frameX, (double) 2) + Math.pow(center.y - frameY, (double) 2)) < Math.pow(15, 2)) {
+                            sightColor = new Scalar(0, 255, 0);
+                        } else if ((Math.pow(center.x - frameX, (double) 2) + Math.pow(center.y - frameY, (double) 2)) < Math.pow(30, 2)) {
+                            sightColor = new Scalar(0, 216, 255);
+                        } else {
+                            sightColor = new Scalar(0, 0, 255);
+                        }
+                        
+                        Imgproc.circle(overlayedImage, sightCenter, 15, sightColor, 2);
+			        }
+
+				    // Apply contours to raw footage
+                    //Imgproc.drawContours(overlayedImage, contourArray, theTarget, new Scalar(0, 0, 255), 5); 
+
+			        // Convert thresholded matrix to image to display in JLabel
+                    processedImage = imageProcessor.toBufferedImage(imagePipeline.hsvThresholdOutput());
 				    				    
-                    // Convert enhanced raw footage matrix to image
-                    tempImage2 = imageProcessor.toBufferedImage(overlayedImage);
+                    // Convert enhanced raw footage matrix to image to display in JLabel
+                    augmentedImage = imageProcessor.toBufferedImage(overlayedImage);
 
 					// Associate the Image with the JLabel
-					ImageIcon imageIcon = new ImageIcon(tempImage, "Captured video");
-					imageLabel.setIcon(imageIcon);
+					ImageIcon processedImageIcon = new ImageIcon(processedImage, "Processed Image");
+					processedImageLabel.setIcon(processedImageIcon);
 					
-                    ImageIcon imageIcon2 = new ImageIcon(tempImage2, "Captured video");
-                    imageLabel2.setIcon(imageIcon2);
+                    ImageIcon augmentedImageIcon = new ImageIcon(augmentedImage, "Augmented Image");
+                    augmentedImageLabel.setIcon(augmentedImageIcon);
                     
-					// Resize the window to fit the image
-					frame.pack();
-                    frame2.pack();
+					// Resize the windows to fit the image
+                    processedFrame.pack();
+                    augmentedFrame.pack();
 				}  
 				else{  
 					System.out.println(" -- Frame not captured -- Break!"); 
