@@ -1,12 +1,19 @@
-import org.opencv.core.*;
+import java.awt.Image;
+import java.util.ArrayList;
+
+import javax.swing.ImageIcon;
+import javax.swing.JLabel;
+
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.videoio.VideoCapture;
 import org.opencv.videoio.Videoio;
-
-import javax.swing.*;
-import java.awt.*;
-import java.util.ArrayList;
 
 //import java.awt.Point;
 
@@ -113,7 +120,15 @@ public class App {
                             sightColor = new Scalar(0, 0, 255);
                         }
 
+                        String offsetText = "X : " + String.valueOf((int) (center.x - frameX)) + "  " +
+                                            "Y : " + String.valueOf((int) (center.y - frameY));
+
+                        // Display sight ring
                         Imgproc.circle(overlayedImage, sightCenter, 15, sightColor, 2);
+                        
+                        // Display pixels from center of sight ring
+                        Imgproc.rectangle(overlayedImage, new Point(0, 0), new Point(augmentedImageLabel.getWidth(), 20), new Scalar(255, 255, 255), -1);
+                        Imgproc.putText(overlayedImage, offsetText, new Point(15, 15), Core.FONT_HERSHEY_PLAIN, 1.0, sightColor);
                     }
 
                     // Apply contours to raw footage
